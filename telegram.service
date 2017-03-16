@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<service id="telegram">
+    <type>IM</type>
+    <provider>telegram</provider>
+    <name>Telegram IM</name>
+    <icon>image://theme/icon-m-chat</icon>
+
+    <template>
+        <group name="telepathy">
+            <setting name="manager">morse</setting>
+            <setting name="protocol">telegram</setting>
+            <setting name="ConnectAutomatically" type="b">true</setting>
+            <setting name="param-keepalive-interval">600</setting>
+        </group>
+
+        <group name="auth">
+            <setting name="method">password</setting>
+            <setting name="mechanism">password</setting>
+        </group>
+    </template>
+</service>

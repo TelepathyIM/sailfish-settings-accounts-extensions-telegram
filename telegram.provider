@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE provider>
+<provider version="1.0" id="telegram">
+    <name>Telegram</name>
+    <description>Telegram account provider</description>
+    <icon>image://theme/icon-m-chat</icon>
+</provider>
