@@ -10,6 +10,16 @@ Column {
     property alias phoneNumber: phoneNumberField.text
     property bool acceptableInput: secretHelper.credentialDataExists
     property bool showDetails: telegramCore.connected || secretHelper.credentialDataExists
+    property int phoneRegistrationStatus: registrationStatus.unknown
+    property int authError: 0
+
+    QtObject {
+        id: registrationStatus
+        readonly property int unknown: 0
+        readonly property int notRegistered: 1
+        readonly property int registered: 2
+        readonly property int error: 3
+    }
 
     width: parent.width
 
@@ -51,9 +61,8 @@ Column {
 
         property string currentPhone: telegramCommonColumn.phoneNumber
 
-        onCurrentPhoneChanged: currentPhoneRegistrationKnown = false
+        onCurrentPhoneChanged: telegramCommonColumn.phoneRegistrationStatus = registrationStatus.unknown
 
-        property bool currentPhoneRegistrationKnown: false
         property bool currentPhoneRegistered: false
 
         function checkPhone(phone)
@@ -86,8 +95,11 @@ Column {
             }
             pendingPhoneNumberForCheck = ""
             if (phone == currentPhone) {
-                currentPhoneRegistrationKnown = true
-                currentPhoneRegistered = registered
+                if (registered) {
+                    telegramCommonColumn.phoneRegistrationStatus = registrationStatus.registered
+                } else {
+                    telegramCommonColumn.phoneRegistrationStatus = registrationStatus.notRegistered
+                }
             }
         }
 
@@ -140,9 +152,21 @@ Column {
 
         onAuthSignErrorReceived: {
             debugDataModel.addMessage("AuthSignErrorReceived: " + errorMessage + " (code: " + errorCode + ")")
-            if (errorCode == TelegramNamespace.AuthSignErrorPhoneCodeIsInvalid) {
+            switch (errorCode) {
+            case TelegramNamespace.AuthSignErrorPhoneCodeIsInvalid:
                 debugDataModel.addMessage("Phone code is not valid")
                 needsState = needsAuthCode
+                break
+            case TelegramNamespace.AuthSignErrorAppIdIsInvalid:
+            case TelegramNamespace.AuthSignErrorPhoneNumberIsInvalid:
+            case TelegramNamespace.AuthSignErrorPhoneNumberIsOccupied:
+            case TelegramNamespace.AuthSignErrorPhoneNumberIsUnoccupied:
+                authError = errorCode
+                telegramCommonColumn.phoneRegistrationStatus = registrationStatus.error;
+                pendingPhoneNumberForCheck = ""
+                break
+            default:
+                break;
             }
         }
 
@@ -169,14 +193,32 @@ Column {
         id: phoneNumberField
         readOnly: !editMode
         width: parent.width
-        enabled: telegramCore.phoneNumberNeeded
+        enabled: telegramCore.phoneNumberNeeded && (telegramCore.pendingPhoneNumberForCheck === "")
         inputMethodHints: Qt.ImhDigitsOnly
-        errorHighlight: !text
+        errorHighlight: !text || errorOccured
         placeholderText: qsTr("Enter phone number")
         label: qsTr("Phone number")
         EnterKey.iconSource: "image://theme/icon-m-enter-accept"
         EnterKey.onClicked: {
             telegramCore.checkPhone(text)
+        }
+        property bool errorOccured: {
+            if (telegramCommonColumn.phoneRegistrationStatus !== registrationStatus.error) {
+                return false
+            }
+
+            switch (telegramCommonColumn.authError) {
+            case TelegramNamespace.AuthSignErrorPhoneNumberIsInvalid:
+                return true;
+            default:
+                return false;
+            }
+        }
+
+        onErrorOccuredChanged: {
+            if (errorOccured) {
+                focus = true
+            }
         }
     }
 
@@ -184,12 +226,18 @@ Column {
         anchors.horizontalCenter: parent.horizontalCenter
         Button {
             id: checkPhoneButton
-            visible: phoneNumberField.text
-            enabled: pendingPhoneNumberForCheck === ""
+            visible: phoneNumberField.text !== ""
+            enabled: phoneNumberField.enabled && !phoneNumberField.readOnly
             text: qsTr("Continue")
             onClicked: {
                 telegramCore.checkPhone(phoneNumberField.text)
-                enabled = false
+            }
+
+            Connections {
+                target: telegramCore
+                onPendingPhoneNumberForCheckChanged: {
+                    checkPhoneButton.text = qsTr("Check phone status")
+                }
             }
         }
         Item {
@@ -229,19 +277,38 @@ Column {
             Label {
                 id: phoneStatusLabel
                 visible: !telegramCore.pendingPhoneNumberForCheck
-                text: telegramCore.currentPhoneRegistrationKnown ?
-                          (telegramCore.currentPhoneRegistered ? qsTr("Registered") : qsTr("Not registered"))
-                        : qsTr("Unknown")
+                text: {
+                    switch (telegramCommonColumn.phoneRegistrationStatus) {
+                    case registrationStatus.unknown:
+                    default:
+                        return qsTr("Unknown");
+                    case registrationStatus.notRegistered:
+                        return qsTr("Not registered");
+                    case registrationStatus.registered:
+                        return qsTr("Registered");
+                    case registrationStatus.error:
+                        switch (telegramCommonColumn.authError) {
+                        case TelegramNamespace.AuthSignErrorAppIdIsInvalid:
+                            return qsTr("App id invalid");
+                        case TelegramNamespace.AuthSignErrorPhoneNumberIsInvalid:
+                            return qsTr("The number is not valid");
+                        default:
+                            return qsTr("Unknown error");
+                        }
+                    }
+                }
+
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
 
         Column {
-            visible: telegramCore.currentPhoneRegistrationKnown
+            visible: telegramCommonColumn.phoneRegistrationStatus === registrationStatus.registered
+                     || telegramCommonColumn.phoneRegistrationStatus === registrationStatus.notRegistered
             width: parent.width
 
             Button {
-                text: telegramCore.currentPhoneRegistered ? qsTr("Sign in") : qsTr("Sign up")
+                text: telegramCommonColumn.phoneRegistrationStatus === registrationStatus.registered ? qsTr("Sign in") : qsTr("Sign up")
                 onClicked: {
                     telegramCore.requestAuthCode(telegramCommonColumn.phoneNumber)
                 }
