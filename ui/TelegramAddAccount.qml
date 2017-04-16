@@ -307,6 +307,12 @@ Column {
                      || telegramCommonColumn.phoneRegistrationStatus === registrationStatus.notRegistered
             width: parent.width
 
+            Item {
+                id: signButtonsPadding
+                width: 1
+                height: Theme.paddingSmall
+            }
+
             Button {
                 text: telegramCommonColumn.phoneRegistrationStatus === registrationStatus.registered ? qsTr("Sign in") : qsTr("Sign up")
                 onClicked: {
