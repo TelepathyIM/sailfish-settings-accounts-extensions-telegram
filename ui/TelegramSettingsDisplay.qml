@@ -20,7 +20,13 @@ Column {
         account.enabled = mainAccountSettings.accountEnabled
         account.displayName = mainAccountSettings.accountDisplayName
         account.enableWithService(_defaultServiceName)
-        _saveServiceSettings(blockingSave)
+
+        _saving = true
+        if (blockingSave) {
+            account.blockingSync()
+        } else {
+            account.sync()
+        }
     }
 
     function _populateServiceSettings() {
@@ -38,33 +44,6 @@ Column {
 //            settings.priority = serviceSettings["telepathy/param-priority"]
     }
 
-    function _saveServiceSettings(blockingSave) {
-//        account.setConfigurationValue("", "default_credentials_username", settings.username)
-//        // param-account is required by Telepathy; it's generated from credentials on creation, but
-//        // needs to be updated manually
-//        account.setConfigurationValue(_defaultServiceName, "telepathy/param-account", settings.username)
-
-//        if (settings.server === "")
-//            account.removeConfigurationValue(_defaultServiceName, "telepathy/param-server")
-//        else
-//            account.setConfigurationValue(_defaultServiceName, "telepathy/param-server", settings.server)
-//        if (settings.port === "")
-//            settings.port = "5222"
-//        account.setConfigurationValue(_defaultServiceName, "telepathy/param-port", settings.port)
-//        account.setConfigurationValue(_defaultServiceName, "telepathy/param-ignore-ssl-errors", settings.ignoreSslErrors)
-//        if (settings.priority === "" || settings.priority == 0)
-//            account.removeConfigurationValue(_defaultServiceName, "telepathy/param-priority")
-//        else
-//            account.setConfigurationValue(_defaultServiceName, "telepathy/param-priority", settings.priority)
-
-//        _saving = true
-//        if (blockingSave) {
-//            account.blockingSync()
-//        } else {
-//            account.sync()
-//        }
-    }
-
     width: parent.width
     spacing: Theme.paddingLarge
 
@@ -72,7 +51,7 @@ Column {
         id: mainAccountSettings
         accountProvider: root.accountProvider
         accountUserName: account.defaultCredentialsUserName
-        accountDisplayName: account.displayName
+        accountDisplayName: account.displayName // "Description"
     }
 
 //    TelegramCommon {
