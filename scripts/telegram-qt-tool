@@ -1,0 +1,188 @@
+#!/bin/sh
+
+UPDATES_URL=https://raw.githubusercontent.com/Kaffeine/sailfish-settings-accounts-extensions-telegram/master/scripts/telegram-qt-tool
+
+downloadScriptUpdate()
+{
+    DIFF=`which diff`
+    if [ $? -ne 0 ]; then
+        echo "'diff' is not available"
+        unset DIFF
+    fi
+    CURL=`which curl`
+    if [ $? -ne 0 ]; then
+        echo "Critical error: 'curl' is not available"
+        unset CURL
+        exit 1
+    fi
+
+    rm -f $0-new
+    echo "$CURL --silent $UPDATES_URL -o $0-new"
+    $CURL --silent $UPDATES_URL -o $0-new
+    echo "diff -Naur $0 $0-new"
+    DIFFERENCE=$($DIFF -Naur $0 $0-new)
+    if [ $? -eq 0 ]; then
+        echo "The newest version is already installed"
+        rm -f $0-new
+        return 0
+    fi
+    echo "$DIFFERENCE"
+
+    chmod +x $0-new && mv $0 $0-old && mv $0-new $0 && rm -f $0-old
+    if [ $? -ne 0 ]; then
+        echo "Unable to work the script files."
+        exit 1
+    fi
+    echo "The script updated."
+    exit 0
+}
+
+shutdownMorse()
+{
+    ONLINE_ACCOUNTS=`mc-tool summary|grep morse|grep -v offline|cut -d ' ' -f 1`
+    if [ -z "$ONLINE_ACCOUNTS" ]; then
+        echo "There is no active account. Done."
+    else
+        echo "$ONLINE_ACCOUNTS"
+        for ACCOUNT in ${ONLINE_ACCOUNTS}; do
+            echo "Disconnect account $ACCOUNT"
+            mc-tool request $ACCOUNT offline
+        done
+        sleep 1 # one sec should be enough for connection to sync and go offline
+    fi
+
+    MORSE_PID=`pidof telepathy-morse`
+
+    if [ "$MORSE_PID" = "" ]; then
+        echo "telepathy-morse is not running"
+    else
+        echo "killall telepathy-morse"
+        killall telepathy-morse
+    fi
+}
+
+packageNameToRepo()
+{
+case "$1" in
+    morse|morse-stable)
+        echo "morse"
+        ;;
+    morse-wip)
+        echo "morse_wip"
+        ;;
+    morse-no-groups)
+        echo "morse_noGroups"
+        ;;
+    *)
+        echo >&2 "Unknown package '$1'."
+        echo >&2 "Try 'telegram-qt-tool --help' for more information"
+        exit 1
+        ;;
+esac
+}
+
+getRepo()
+{
+    REPO=$(packageNameToRepo $1)
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+    REPO_URL=http://repo.merproject.org/obs/home:/Kaffeine:/$REPO/${REPO}_repo
+    echo $REPO_URL
+}
+
+isPrivileged()
+{
+    if [ "$(groups|grep privileged|wc -l)" = "0" ]; then
+        return 1
+    fi
+    return 0
+}
+
+isRoot()
+{
+    if [ "$(whoami)" = "root" ]; then
+        return 0
+    fi
+    return 1
+}
+
+ensurePrivilegies()
+{
+    if isPrivileged; then
+        return 0
+    else
+        if isRoot; then
+            return 0
+        fi
+    fi
+    echo "Insufficient privileges. Use 'devel-su' or 'devel-su -p' to run the tool."
+    return 1
+}
+
+installPackage()
+{
+    if ! ensurePrivilegies; then
+        exit 1
+    fi
+
+    PACKAGES="telegram-qt-qt5 telegram-qt-qt5-declarative sailfish-settings-accounts-extensions-telegram telepathy-morse"
+    REPO=$(packageNameToRepo $1)
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+    REPO_URL=http://repo.merproject.org/obs/home:/Kaffeine:/$REPO/${REPO}_repo
+    echo "Ensure repository $REPO refers to $REPO_URL"
+    ssu ar $REPO $REPO_URL
+    echo "Enable repository $REPO"
+    ssu er $REPO
+    echo "Update the repository (with pkcon)"
+    pkcon repo-set-data $REPO refresh-now true > /dev/null
+    echo "Install packages..."
+    pkcon install $PACKAGES
+    echo "Disable the repository"
+    ssu dr $REPO
+
+    echo "Installed packages:"
+    for PACKAGE in ${PACKAGES}; do
+        echo -n "    "
+        rpm -q $PACKAGE
+    done
+
+    shutdownMorse
+}
+
+showUsage()
+{
+    echo "Usage:"
+    echo "    telegram-qt-tool [action] [package]"
+    echo "Actions:"
+    echo "    --get-repo       Print the given package set repository"
+    echo "    --install        Install the given package set"
+    echo "    --update-script  Update the installation script"
+    echo "    --help           Show this help"
+    echo "Package:"
+    echo "    morse-stable     The stable build of telepathy-morse"
+    echo "    morse-no-groups  Telepathy-morse with disabled groups support"
+    echo "    morse-wip        The work-in-progress build of telepathy-morse"
+}
+
+case "$1" in
+    --get-repo)
+        getRepo $2
+        ;;
+    --install)
+        installPackage $2
+        ;;
+    --update-script)
+        downloadScriptUpdate
+        ;;
+    --help)
+        showUsage
+        exit 0
+        ;;
+    *)
+        showUsage
+        exit 1
+        ;;
+esac
