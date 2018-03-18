@@ -380,7 +380,7 @@ Column {
             anchors.horizontalCenter: parent.horizontalCenter
             Button {
                 enabled: telegramCore.hasValidCredentials
-                text: qsTr("Dump the data")
+                text: qsTr("Save the credentials")
                 onClicked: {
                     if(secretHelper.saveCredentialsData(telegramCore.connectionSecretData)) {
                         debugDataModel.addMessage("Credentials data saved")
@@ -401,40 +401,43 @@ Column {
                 }
             }
         }
+    }
 
-        ListModel {
-            id: debugDataModel
-            function addMessage(message)
-            {
-                console.log(message)
-                append({"timestamp": Qt.formatDateTime(new Date(), "hh:mm:ss"), "message": message })
+    ListModel {
+        id: debugDataModel
+        function addMessage(message)
+        {
+            console.log(message)
+            append({"timestamp": Qt.formatDateTime(new Date(), "hh:mm:ss"), "message": message })
+        }
+    }
+
+    TextSwitch {
+        id: debugViewSwitch
+        text: qsTr("Show debug data")
+        description: "Check this to view logs"
+    }
+
+    Repeater {
+        id: logRepeater
+        model: debugViewSwitch.checked ? debugDataModel : 0
+        Row {
+            x: Theme.horizontalPageMargin
+            spacing: Theme.paddingSmall
+            Label {
+                text: model.timestamp
+            }
+            Label {
+                text: model.message
+                wrapMode: Text.Wrap
+                width: telegramCommonColumn.width - x
             }
         }
+    }
 
-        TextSwitch {
-            id: debugViewSwitch
-            text: qsTr("Show debug data")
-            description: "Check this to view logs"
-        }
-
-        Repeater {
-            id: logRepeater
-            model: debugViewSwitch.checked ? debugDataModel : 0
-            Row {
-                spacing: Theme.paddingSmall
-                Label {
-                    text: model.timestamp
-                }
-                Label {
-                    text: model.message
-                    wrapMode: Text.Wrap
-                    width: telegramCommonColumn.width - x
-                }
-            }
-        }
-        Label {
-            visible: debugViewSwitch.checked && (logRepeater.count === 0)
-            text: qsTr("There is no log messages yet")
-        }
+    Label {
+        x: Theme.horizontalPageMargin
+        visible: debugViewSwitch.checked && (logRepeater.count === 0)
+        text: qsTr("There is no log messages yet")
     }
 }
