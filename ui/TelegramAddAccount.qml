@@ -115,7 +115,7 @@ Column {
 
         function requestAuthCode(phone) {
             debugDataModel.addMessage("Request auth code for phone number " + phone)
-            telegramCore.requestPhoneCode(phone)
+            telegramCore.requestAuthCode(phone)
         }
 
         function trySignIn(phone, code) {
