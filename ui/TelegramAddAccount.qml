@@ -113,7 +113,7 @@ Column {
             telegramCore.initConnection()
         }
 
-        function requestAuthCode(phone) {
+        function getAuthCode(phone) {
             debugDataModel.addMessage("Request auth code for phone number " + phone)
             telegramCore.requestAuthCode(phone)
         }
@@ -316,7 +316,7 @@ Column {
             Button {
                 text: telegramCommonColumn.phoneRegistrationStatus === registrationStatus.registered ? qsTr("Sign in") : qsTr("Sign up")
                 onClicked: {
-                    telegramCore.requestAuthCode(telegramCommonColumn.phoneNumber)
+                    telegramCore.getAuthCode(telegramCommonColumn.phoneNumber)
                 }
                 anchors.horizontalCenter: parent.horizontalCenter
             }
