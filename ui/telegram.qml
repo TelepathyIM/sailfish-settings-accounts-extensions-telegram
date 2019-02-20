@@ -3,70 +3,237 @@ import Sailfish.Silica 1.0
 import Sailfish.Accounts 1.0
 import com.jolla.settings.accounts 1.0
 
+import TelegramQt 0.2 as Telegram
+
+import "telegram"
+
 AccountCreationAgent {
     id: root
+    initialPage: Component {
+        WizardPage {
+            id: wizardPage
+            contentSource: Qt.resolvedUrl("telegram/EnterPhone.qml")
 
-    property Item _settingsDialog
-
-    initialPage: Dialog {
-        canAccept: addAccountPage.acceptableInput
-        acceptDestination: busyComponent
-
-        SilicaFlickable {
-            anchors.fill: parent
-            contentHeight: contentColumn.height + Theme.paddingLarge
-
-            Column {
-                id: contentColumn
-                width: parent.width
-
-                DialogHeader {
-                    dialog: initialPage
-                }
-
-                Item {
-                    x: Theme.horizontalPageMargin
-                    width: parent.width - x*2
-                    height: icon.height + Theme.paddingLarge
-
-                    Image {
-                        id: icon
-                        width: Theme.iconSizeLarge
-                        height: width
-                        anchors.top: parent.top
-                        source: root.accountProvider.iconName
+            PullDownMenu {
+                parent: wizardPage.innerFlickable
+                MenuItem {
+                    text: qsTr("Settings")
+                    onClicked: {
+                        root.showNetworkSettings()
                     }
-                    Label {
-                        anchors {
-                            left: icon.right
-                            leftMargin: Theme.paddingLarge
-                            right: parent.right
-                            verticalCenter: icon.verticalCenter
-                        }
-                        text: root.accountProvider.displayName
-                        color: Theme.highlightColor
-                        font.pixelSize: Theme.fontSizeLarge
-                        truncationMode: TruncationMode.Fade
-                    }
-                }
-
-                TelegramAddAccount {
-                    id: addAccountPage
                 }
             }
-
-            VerticalScrollDecorator {}
         }
     }
 
-    Component {
-        id: busyComponent
-        AccountBusyPage {
-            onStatusChanged: {
-                if (status == PageStatus.Active) {
-                    accountFactory.beginCreation()
+    Connections {
+        target: pageStack.currentPage.hasOwnProperty("__wizardPage")
+                ? pageStack.currentPage.contentItem
+                : pageStack.currentPage
+        ignoreUnknownSignals: true
+        onSubmitAuthCode: authOperation.submitAuthCode(code)
+        onSubmitPassword: authOperation.submitPassword(password)
+        onSubmitPhoneNumber: {
+            authOperation.startAuthentication()
+            authOperation.submitPhoneNumber(phoneNumber)
+        }
+        onSubmitName: {
+            if (authOperation.submitName(firstName, lastName)) {
+                root.setActivePage("telegram/EnterCode.qml")
+            }
+        }
+
+        // Settings page
+        onAccountSaveInitiated: {
+            root.delayDeletion = true
+        }
+        onAccountSaveCompleted: {
+            root.delayDeletion = false
+        }
+    }
+
+    property alias phoneNumber: authOperation.phoneNumber
+    property int accountId
+    property bool accountSettingsRequested: false
+
+    function showNetworkSettings()
+    {
+        pageStack.push(Qt.resolvedUrl("telegram/NetworkSettingsPage.qml"), {
+                           "settingsInstance": telegramSettings
+                       })
+    }
+
+    Connections {
+        target: pageStack
+        onBusyChanged: {
+            if (accountSettingsRequested) {
+                tryToShowAccountSettings()
+            }
+        }
+    }
+
+    function tryToShowAccountSettings()
+    {
+        if (pageStack.busy) {
+            return
+        }
+        accountSettingsRequested = false
+        pageStack.push(Qt.resolvedUrl("telegram/AccountSettingsPage.qml"), {
+                           "settingsInstance": telegramSettings,
+                           "accountId": accountId,
+                           "context": root,
+                       })
+    }
+
+    function setActivePage(pageUrl)
+    {
+        var targetPage = pageStack.currentPage
+        if (targetPage.acceptDestinationInstance) {
+            targetPage = targetPage.acceptDestinationInstance
+        }
+        targetPage.context = root
+        targetPage.contentSource = Qt.resolvedUrl(pageUrl)
+    }
+
+    Telegram.ServerOption {
+        id: customServer
+    }
+
+    Telegram.RsaKey {
+        id: telegramServerKey
+        loadDefault: true
+    }
+
+    Telegram.Settings {
+        id: telegramSettings
+        pingInterval: 15000
+        serverKey: telegramServerKey
+
+        function getSettings()
+        {
+            var settingsMap = {}
+            if (proxy.address && proxy.port) {
+                settingsMap["proxy-type"] = "socks5"
+                settingsMap["proxy-address"] = proxy.address
+                settingsMap["proxy-port"] = proxy.port
+            }
+
+            console.log("Server options: " + serverOptions.length)
+            if (serverOptions.length !== 0) {
+                settingsMap["server-address"] = customServer.address
+                settingsMap["server-port"] = customServer.port
+
+                if (!telegramServerKey.loadDefault) {
+                    settingsMap["server-key"] = telegramServerKey.fileName
                 }
             }
+
+            return settingsMap
+        }
+
+        function setSettings(settingsMap)
+        {
+            if (settingsMap["proxy-type"] === "socks5") {
+                proxy.address = settingsMap["proxy-address"]
+                proxy.port = settingsMap["proxy-port"]
+            } else {
+                proxy.address = ""
+                proxy.port = 0
+            }
+
+            if (settingsMap["server-address"]) {
+                customServer.address = settingsMap["server-address"]
+                customServer.port = settingsMap["server-port"]
+                serverOptions = [customServer]
+            } else {
+                serverOptions = []
+            }
+
+            if (settingsMap["server-key"]) {
+                serverKey.loadDefault = false
+                serverKey.fileName = settingsMap["server-key"]
+            } else {
+                serverKey.fileName = ""
+                serverKey.loadDefault = true
+            }
+        }
+    }
+
+    Telegram.FileAccountStorage {
+        id: accountStorage
+        readonly property string accountSubdir: "telegram-qt/secrets"
+        readonly property string accountFile: "account.bin"
+        readonly property string serverIdentifier: telegramSettings.serverOptions.length === 0
+                           ? "official"
+                           : customServer.address
+        accountIdentifier: root.phoneNumber
+        fileName: StandardPaths.genericData
+                  + "/" + accountSubdir
+                  + "/" + serverIdentifier
+                  + "/" + accountFile
+        onSynced: console.log("Account synced to " + fileName)
+    }
+
+    Telegram.AppInformation {
+        id: appInfo
+        appId: 14617
+        appHash: "e17ac360fd072f83d5d08db45ce9a121" // Telepathy-Morse app hash
+        appVersion: "0.2"
+        deviceInfo: "pc"
+        osInfo: "GNU/Linux"
+        languageCode: "en"
+    }
+
+    Telegram.Client {
+        id: telegramClient
+        applicationInformation: appInfo
+        settings: telegramSettings
+        dataStorage: Telegram.InMemoryDataStorage { }
+        accountStorage: accountStorage
+    }
+
+    Telegram.AuthOperation {
+        id: authOperation
+        client: telegramClient
+        onCheckInFinished: {
+            console.log("check in finished:" + signedIn)
+            if (signedIn) {
+
+            } else {
+                // TODO: Process network errors
+                signIn()
+            }
+        }
+
+        onStatusChanged: {
+            console.log("New status:" + status)
+            if (status == Telegram.AuthOperation.SignedIn) {
+                console.log("Signed in!")
+            }
+        }
+
+        onPhoneNumberRequired: {
+            root.setActivePage("telegram/EnterPhone.qml")
+        }
+
+        onFinished: {
+            console.log("Auth operation finished. Succeeded: " + succeeded)
+            if (succeeded) {
+                root.setActivePage("telegram/SuccessBusyPage.qml")
+                accountFactory.beginCreation()
+            }
+        }
+
+        onAuthCodeRequired: {
+            if (authOperation.registered) {
+                root.setActivePage("telegram/EnterCode.qml")
+            } else {
+                root.setActivePage("telegram/EnterName.qml")
+            }
+        }
+
+        onPasswordRequired: {
+            root.setActivePage("telegram/EnterPassword.qml")
         }
     }
 
@@ -74,21 +241,35 @@ AccountCreationAgent {
         id: accountFactory
         function beginCreation() {
             var configuration = {}
-            configuration["telepathy/account"] = addAccountPage.phoneNumber
-            configuration["telepathy/keepalive-interval"] = 900
-//            if (settings.phoneNumber != "")
-//                configuration["telepathy/param-server"] = settings.server
-//            if (settings.port != "")
-//                configuration["telepathy/param-port"] = settings.port
-//            if (settings.ignoreSslErrors)
-//                configuration["telepathy/param-ignore-ssl-errors"] = true
-//            if (settings.priority != "")
-//                configuration["telepathy/param-priority"] = settings.priority
+            configuration["telepathy/account"] = phoneNumber
+            configuration["telepathy/param-account"] = phoneNumber
+
+            if (telegramSettings.proxy.address && telegramSettings.proxy.port) {
+                configuration["telepathy/param-proxy-type"] = "socks5"
+                configuration["telepathy/param-proxy-address"] = telegramSettings.proxy.address
+                configuration["telepathy/param-proxy-port"] = telegramSettings.proxy.port
+            }
+
+            if (telegramSettings.serverOptions.length !== 0) {
+                configuration["telepathy/param-server-address"] = customServer.address
+                configuration["telepathy/param-server-port"] = customServer.port
+
+                if (!telegramServerKey.loadDefault) {
+                    configuration["telepathy/param-server-key"] = telegramServerKey.fileName
+                }
+            }
+
+            // Password is not needed for telegram account, but required by the Account library
+            var passwordPlaceholder = "password_placeholder"
+
+            console.log("begin creation: " + root.accountProvider.name + " " + root.accountProvider.serviceNames[0])
+            console.log("      creation: " + phoneNumber + "|" + passwordPlaceholder)
+            console.log("      creation: " + JSON.stringify(configuration, null, 4))
 
             createAccount(root.accountProvider.name,
                 root.accountProvider.serviceNames[0],
-                addAccountPage.phoneNumber, "123", // Password is not needed for telegram account, but required by Account library
-                "", // No username // Can be resolved from Telegram
+                phoneNumber, passwordPlaceholder,
+                phoneNumber, // No username // Can be resolved from Telegram
                 { "telegram": configuration },       // configuration map
                 "Jolla",  // applicationName
                 "",       // symmetricKey
@@ -97,54 +278,14 @@ AccountCreationAgent {
 
         onError: {
             console.log("Telegram account creation error:", message)
-            initialPage.acceptDestinationInstance.state = "info"
             root.accountCreationError(message)
         }
 
         onSuccess: {
-            root._settingsDialog = settingsComponent.createObject(root, {"accountId": newAccountId})
-            pageStack.push(root._settingsDialog)
+            root.accountId = newAccountId
+            root.accountSettingsRequested = true
+            root.tryToShowAccountSettings()
             root.accountCreated(newAccountId)
-        }
-    }
-
-    Component {
-        id: settingsComponent
-        Dialog {
-            property alias accountId: settingsDisplay.accountId
-
-            acceptDestination: root.endDestination
-            acceptDestinationAction: root.endDestinationAction
-            acceptDestinationProperties: root.endDestinationProperties
-            acceptDestinationReplaceTarget: root.endDestinationReplaceTarget
-            backNavigation: false
-
-            onAccepted: {
-                root.delayDeletion = true
-                settingsDisplay.saveAccount()
-            }
-
-            SilicaFlickable {
-                anchors.fill: parent
-                contentHeight: header.height + settingsDisplay.height + Theme.paddingLarge
-
-                DialogHeader {
-                    id: header
-                }
-
-                TelegramSettingsDisplay {
-                    id: settingsDisplay
-                    anchors.top: header.bottom
-                    accountProvider: root.accountProvider
-                    autoEnableAccount: true
-
-                    onAccountSaveCompleted: {
-                        root.delayDeletion = false
-                    }
-                }
-
-                VerticalScrollDecorator {}
-            }
         }
     }
 }

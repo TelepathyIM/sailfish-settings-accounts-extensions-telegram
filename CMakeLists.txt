@@ -1,12 +1,8 @@
+cmake_minimum_required(VERSION 3.1)
+
 project(TelegramAccountSettingsExtension)
 
 set(ProviderName telegram)
-set(UI_EXTRA_FILES
-    ui/TelegramAddAccount.qml
-    ui/TelegramSettingsDisplay.qml
-)
-
-cmake_minimum_required(VERSION 2.8)
 
 include(GNUInstallDirs)
 
@@ -27,6 +23,11 @@ install(
 )
 
 install(
-    FILES ${UI_FILES} ${UI_EXTRA_FILES}
+    FILES ${UI_FILES}
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/accounts/ui
+)
+
+install(
+    DIRECTORY ui/${ProviderName}
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/accounts/ui
 )

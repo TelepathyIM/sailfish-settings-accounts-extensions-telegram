@@ -3,13 +3,14 @@ import Sailfish.Silica 1.0
 import Sailfish.Accounts 1.0
 import com.jolla.settings.accounts 1.0
 
+import "telegram" as Internal
+
 AccountSettingsAgent {
     id: root
 
     initialPage: Page {
         onPageContainerChanged: {
             if (pageContainer == null) {
-                root.delayDeletion = true
                 settingsDisplay.saveAccount()
             }
         }
@@ -41,18 +42,25 @@ AccountSettingsAgent {
                 title: root.accountsHeaderText
             }
 
-            TelegramSettingsDisplay {
+            Internal.AccountSettings {
                 id: settingsDisplay
                 anchors.top: header.bottom
                 accountProvider: root.accountProvider
                 accountId: root.accountId
 
+                onAccountSaveInitiated: {
+                    root.delayDeletion = true
+                }
                 onAccountSaveCompleted: {
                     root.delayDeletion = false
                 }
             }
 
-            VerticalScrollDecorator {}
+            onContentHeightChanged: verticalScroll.showDecorator()
+
+            VerticalScrollDecorator {
+                id: verticalScroll
+            }
         }
 
         AccountCredentialsUpdater {

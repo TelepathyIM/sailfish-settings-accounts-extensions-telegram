@@ -4,8 +4,7 @@ account_ui.files = \
     ui/telegram-settings.qml \
     ui/telegram-update.qml \
     ui/telegram.qml \
-    ui/TelegramAddAccount.qml \
-    ui/TelegramSettingsDisplay.qml
+    ui/telegram/*
 
 account_ui.path = /usr/share/accounts/ui
 
