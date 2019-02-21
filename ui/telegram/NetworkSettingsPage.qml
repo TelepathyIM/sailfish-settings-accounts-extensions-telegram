@@ -13,6 +13,8 @@ Dialog {
             networkSettings.customizeProxy = true
             networkSettings.proxyAddress = settingsMap["proxy-address"]
             networkSettings.proxyPort = settingsMap["proxy-port"]
+            networkSettings.proxyUsername = settingsMap["proxy-username"]
+            networkSettings.proxyPassword = settingsMap["proxy-password"]
         }
 
         if (settingsMap["server-address"]) {
@@ -29,6 +31,8 @@ Dialog {
             settingsMap["proxy-type"] = "socks5"
             settingsMap["proxy-address"] = networkSettings.proxyAddress
             settingsMap["proxy-port"] = networkSettings.proxyPort
+            settingsMap["proxy-username"] = networkSettings.proxyUsername
+            settingsMap["proxy-password"] = networkSettings.proxyPassword
         }
 
         if (networkSettings.hasCustomServer) {

@@ -116,6 +116,8 @@ AccountCreationAgent {
                 settingsMap["proxy-type"] = "socks5"
                 settingsMap["proxy-address"] = proxy.address
                 settingsMap["proxy-port"] = proxy.port
+                settingsMap["proxy-username"] = proxy.user
+                settingsMap["proxy-password"] = proxy.password
             }
 
             console.log("Server options: " + serverOptions.length)
@@ -136,9 +138,13 @@ AccountCreationAgent {
             if (settingsMap["proxy-type"] === "socks5") {
                 proxy.address = settingsMap["proxy-address"]
                 proxy.port = settingsMap["proxy-port"]
+                proxy.user = settingsMap["proxy-username"]
+                proxy.password = settingsMap["proxy-password"]
             } else {
                 proxy.address = ""
                 proxy.port = 0
+                proxy.user = ""
+                proxy.password = ""
             }
 
             if (settingsMap["server-address"]) {

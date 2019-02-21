@@ -40,6 +40,8 @@ Column {
         property alias customizeProxy: networkSettings.customizeProxy
         property alias proxyAddress: networkSettings.proxyAddress
         property alias proxyPort: networkSettings.proxyPort
+        property alias proxyUsername: networkSettings.proxyUsername
+        property alias proxyPassword: networkSettings.proxyPassword
         property bool acceptableInput: phoneNumber && networkSettings.acceptableInput
 
         Behavior on opacity { FadeAnimation { } }
@@ -137,10 +139,20 @@ Column {
             account.setConfigurationValue(serviceName, "telepathy/param-proxy-type", "socks5")
             account.setConfigurationValue(serviceName, "telepathy/param-proxy-address", settings.proxyAddress)
             account.setConfigurationValue(serviceName, "telepathy/param-proxy-port", settings.proxyPort)
+
+            if (settings.proxyUsername) {
+                account.setConfigurationValue(serviceName, "telepathy/param-proxy-username", settings.proxyUsername)
+                account.setConfigurationValue(serviceName, "telepathy/param-proxy-password", settings.proxyPassword)
+            } else {
+                account.removeConfigurationValue(serviceName, "telepathy/param-proxy-username")
+                account.removeConfigurationValue(serviceName, "telepathy/param-proxy-password")
+            }
         } else {
             account.removeConfigurationValue(serviceName, "telepathy/param-proxy-type")
             account.removeConfigurationValue(serviceName, "telepathy/param-proxy-address")
             account.removeConfigurationValue(serviceName, "telepathy/param-proxy-port")
+            account.removeConfigurationValue(serviceName, "telepathy/param-proxy-username")
+            account.removeConfigurationValue(serviceName, "telepathy/param-proxy-password")
         }
 
         _saving = true
@@ -170,6 +182,8 @@ Column {
             settings.customizeProxy = true
             settings.proxyAddress = serviceSettings["telepathy/param-proxy-address"]
             settings.proxyPort = serviceSettings["telepathy/param-proxy-port"]
+            settings.proxyUsername = serviceSettings["telepathy/param-proxy-username"]
+            settings.proxyPassword = serviceSettings["telepathy/param-proxy-password"]
         } else {
             settings.customizeProxy = false
         }

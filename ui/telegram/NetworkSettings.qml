@@ -14,6 +14,8 @@ Column {
     property alias customizeProxy: customizeProxySwitch.checked
     property alias proxyAddress: proxyAddressField.text
     property alias proxyPort: proxyPortField.text
+    property alias proxyUsername: proxyUsernameField.text
+    property alias proxyPassword: proxyPasswordField.text
     property alias serverKeyFile: serverKeyButton.file
 
     property bool allowChangeServer: false
@@ -75,11 +77,28 @@ Column {
             inputMethodHints: Qt.ImhDigitsOnly
             label: qsTr("Port number")
             placeholderText: label
-            EnterKey.iconSource: "image://theme/icon-m-enter-close"
+            EnterKey.iconSource: "image://theme/icon-m-enter-next"
+            EnterKey.onClicked: proxyUsernameField.focus = true
             validator: IntValidator {
                 bottom: 0
                 top: 65535
             }
+        }
+
+        TextField {
+            id: proxyUsernameField
+            width: parent.width
+            inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+            label: qsTr("Username")
+            placeholderText: label
+            EnterKey.iconSource: "image://theme/icon-m-enter-next"
+            EnterKey.onClicked: proxyPasswordField.focus = true
+        }
+
+        PasswordField {
+            id: proxyPasswordField
+            width: parent.width
+            EnterKey.iconSource: "image://theme/icon-m-enter-close"
         }
     }
 
