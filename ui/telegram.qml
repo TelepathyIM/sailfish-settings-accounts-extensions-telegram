@@ -167,7 +167,7 @@ AccountCreationAgent {
 
     Telegram.FileAccountStorage {
         id: accountStorage
-        readonly property string accountSubdir: "telegram-qt/secrets"
+        readonly property string accountSubdir: "telepathy/morse"
         readonly property string accountFile: "account.bin"
         readonly property string serverIdentifier: telegramSettings.serverOptions.length === 0
                            ? "official"
