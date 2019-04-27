@@ -1,6 +1,11 @@
 #!/bin/sh
 
-UPDATES_URL=https://raw.githubusercontent.com/Kaffeine/sailfish-settings-accounts-extensions-telegram/master/scripts/telegram-qt-tool
+UPDATES_BRANCH=master
+CONFIG_FILE=$HOME/.config/telegram-qt-tool-rc
+
+source $CONFIG_FILE
+
+UPDATES_URL=https://raw.githubusercontent.com/Kaffeine/sailfish-settings-accounts-extensions-telegram/$UPDATES_BRANCH/scripts/telegram-qt-tool
 
 downloadScriptUpdate()
 {
@@ -91,6 +96,11 @@ getRepo()
     echo $REPO_URL
 }
 
+setBranch()
+{
+    echo "UPDATES_BRANCH=$1" > $CONFIG_FILE
+}
+
 isPrivileged()
 {
     if [ "$(groups|grep privileged|wc -l)" = "0" ]; then
@@ -155,12 +165,15 @@ installPackage()
 showUsage()
 {
     echo "Usage:"
-    echo "    telegram-qt-tool [action] [package]"
+    echo "    telegram-qt-tool <action> [<args>]"
     echo "Actions:"
     echo "    --get-repo       Print the given package set repository"
+    echo "    --set-branch     Change the source branch for everything including this script updates"
     echo "    --install        Install the given package set"
     echo "    --update-script  Update the installation script"
     echo "    --help           Show this help"
+    echo "Arguments:"
+    echo "    [package]        "
     echo "Package:"
     echo "    morse-stable     The stable build of telepathy-morse"
     echo "    morse-no-groups  Telepathy-morse with disabled groups support"
@@ -170,6 +183,9 @@ showUsage()
 case "$1" in
     --get-repo)
         getRepo $2
+        ;;
+    --branch)
+        setBranch $2
         ;;
     --install)
         installPackage $2
