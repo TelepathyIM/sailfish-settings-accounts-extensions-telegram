@@ -4,6 +4,7 @@ import Sailfish.Accounts 1.0
 import com.jolla.settings.accounts 1.0
 
 import TelegramQt 0.2 as Telegram
+import Morse 0.1 as Morse
 
 import "telegram"
 
@@ -165,26 +166,33 @@ AccountCreationAgent {
         }
     }
 
+    Morse.Info {
+        id: morseInfo_
+        serverIdentifier: (morseInfo_.serverAddress && morseInfo_.serverPort)
+                          ? morseInfo_.serverAddress + ":" + morseInfo_.serverPort
+                          : ""
+        property string serverAddress: telegramSettings.serverOptions.length
+                                       ? customServer.address
+                                       : ""
+        property int serverPort: telegramSettings.serverOptions.length
+                                 ? customServer.port
+                                 : 0
+    }
+
     Telegram.FileAccountStorage {
         id: accountStorage
-        readonly property string accountSubdir: "telepathy/morse"
-        readonly property string accountFile: "account.bin"
-        readonly property string serverIdentifier: telegramSettings.serverOptions.length === 0
-                           ? "official"
-                           : customServer.address
+
         accountIdentifier: root.phoneNumber
-        fileName: StandardPaths.genericData
-                  + "/" + accountSubdir
-                  + "/" + serverIdentifier
-                  + "/" + accountFile
+        fileName: morseInfo_.accountDataFilePath
+
         onSynced: console.log("Account synced to " + fileName)
     }
 
     Telegram.AppInformation {
         id: appInfo
-        appId: 14617
-        appHash: "e17ac360fd072f83d5d08db45ce9a121" // Telepathy-Morse app hash
-        appVersion: "0.2"
+        appId: morseInfo_.appId
+        appHash: morseInfo_.appHash
+        appVersion: morseInfo_.version
         deviceInfo: "pc"
         osInfo: "GNU/Linux"
         languageCode: "en"
