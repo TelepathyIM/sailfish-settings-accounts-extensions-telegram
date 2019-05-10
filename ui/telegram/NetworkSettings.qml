@@ -2,6 +2,8 @@ import QtQuick 2.6
 import Sailfish.Silica 1.0
 import Sailfish.Pickers 1.0
 
+import TelegramQt 0.2 as Telegram
+
 Column {
     id: content
 
@@ -147,11 +149,17 @@ Column {
             id: serverKeyButton
             property string file
             label: qsTr("Server certificate")
-            value: file ? qsTr("Custom") : qsTr("Official")
+            value: file ? customServerKey.fingerprintText : qsTr("Official")
 
             onClicked: {
                 onClicked: pageStack.push(certificatePickerPage)
             }
+        }
+
+        Telegram.RsaKey {
+            id: customServerKey
+            fileName: serverKeyButton.file
+            readonly property string fingerprintText: valid ? fingerprint : qsTr("Invalid")
         }
 
         Component {
