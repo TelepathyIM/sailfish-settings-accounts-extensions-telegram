@@ -18,6 +18,12 @@ AccountCreationAgent {
             PullDownMenu {
                 parent: wizardPage.innerFlickable
                 MenuItem {
+                    text: qsTr("About")
+                    onClicked: {
+                        root.showAboutPage()
+                    }
+                }
+                MenuItem {
                     text: qsTr("Settings")
                     onClicked: {
                         root.showNetworkSettings()
@@ -62,6 +68,11 @@ AccountCreationAgent {
         pageStack.push(Qt.resolvedUrl("telegram/NetworkSettingsPage.qml"), {
                            "settingsInstance": telegramSettings
                        })
+    }
+
+    function showAboutPage()
+    {
+        pageStack.push(Qt.resolvedUrl("telegram/AboutPage.qml"))
     }
 
     Connections {
