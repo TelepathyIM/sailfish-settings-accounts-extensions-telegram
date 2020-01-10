@@ -11,8 +11,6 @@ Dialog {
 
     property var context
 
-    property var settingsInstance
-
     acceptDestination: context.endDestination
     acceptDestinationAction: context.endDestinationAction
     acceptDestinationProperties: context.endDestinationProperties

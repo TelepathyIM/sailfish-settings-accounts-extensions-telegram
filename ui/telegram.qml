@@ -66,7 +66,7 @@ AccountCreationAgent {
     function showNetworkSettings()
     {
         pageStack.push(Qt.resolvedUrl("telegram/NetworkSettingsPage.qml"), {
-                           "settingsInstance": telegramSettings
+                           "settingsInstance": networkSettingsWrapper
                        })
     }
 
@@ -91,7 +91,6 @@ AccountCreationAgent {
         }
         accountSettingsRequested = false
         pageStack.push(Qt.resolvedUrl("telegram/AccountSettingsPage.qml"), {
-                           "settingsInstance": telegramSettings,
                            "accountId": accountId,
                            "context": root,
                        })
@@ -107,39 +106,29 @@ AccountCreationAgent {
         targetPage.contentSource = Qt.resolvedUrl(pageUrl)
     }
 
-    Telegram.ServerOption {
-        id: customServer
+    Client {
+        id: telegramClient_
     }
 
-    Telegram.RsaKey {
-        id: telegramServerKey
-        loadDefault: true
-    }
-
-    Telegram.Settings {
-        id: telegramSettings
-        pingInterval: 15000
-        serverKey: telegramServerKey
+    QtObject {
+        id: networkSettingsWrapper
 
         function getSettings()
         {
             var settingsMap = {}
-            if (proxy.address && proxy.port) {
+            var proxySettings = telegramClient_.settings.proxy
+            if (proxySettings.address && proxySettings.port) {
                 settingsMap["proxy-type"] = "socks5"
-                settingsMap["proxy-address"] = proxy.address
-                settingsMap["proxy-port"] = proxy.port
-                settingsMap["proxy-username"] = proxy.user
-                settingsMap["proxy-password"] = proxy.password
+                settingsMap["proxy-address"] = proxySettings.address
+                settingsMap["proxy-port"] = proxySettings.port
+                settingsMap["proxy-username"] = proxySettings.user
+                settingsMap["proxy-password"] = proxySettings.password
             }
 
-            console.log("Server options: " + serverOptions.length)
-            if (serverOptions.length !== 0) {
-                settingsMap["server-address"] = customServer.address
-                settingsMap["server-port"] = customServer.port
-
-                if (!telegramServerKey.loadDefault) {
-                    settingsMap["server-key"] = telegramServerKey.fileName
-                }
+            if (telegramClient_.hasCustomServer) {
+                settingsMap["server-address"] = telegramClient_.customServerAddress
+                settingsMap["server-port"] = telegramClient_.customServerPort
+                settingsMap["server-key"] = telegramClient_.rsaKeyFileName
             }
 
             return settingsMap
@@ -147,79 +136,28 @@ AccountCreationAgent {
 
         function setSettings(settingsMap)
         {
+            var proxySettings = telegramClient_.settings.proxy
             if (settingsMap["proxy-type"] === "socks5") {
-                proxy.address = settingsMap["proxy-address"]
-                proxy.port = settingsMap["proxy-port"]
-                proxy.user = settingsMap["proxy-username"]
-                proxy.password = settingsMap["proxy-password"]
+                proxySettings.address = settingsMap["proxy-address"]
+                proxySettings.port = settingsMap["proxy-port"]
+                proxySettings.user = settingsMap["proxy-username"] || ""
+                proxySettings.password = settingsMap["proxy-password"] || ""
             } else {
-                proxy.address = ""
-                proxy.port = 0
-                proxy.user = ""
-                proxy.password = ""
+                proxySettings.address = ""
+                proxySettings.port = 0
+                proxySettings.user = ""
+                proxySettings.password = ""
             }
 
-            if (settingsMap["server-address"]) {
-                customServer.address = settingsMap["server-address"]
-                customServer.port = settingsMap["server-port"]
-                serverOptions = [customServer]
-            } else {
-                serverOptions = []
-            }
-
-            if (settingsMap["server-key"]) {
-                serverKey.loadDefault = false
-                serverKey.fileName = settingsMap["server-key"]
-            } else {
-                serverKey.fileName = ""
-                serverKey.loadDefault = true
-            }
+            telegramClient_.customServerAddress = settingsMap["server-address"] || ""
+            telegramClient_.customServerPort = settingsMap["server-port"] || 0
+            telegramClient_.rsaKeyFileName = settingsMap["server-key"] || ""
         }
-    }
-
-    Morse.Info {
-        id: morseInfo_
-        serverIdentifier: (morseInfo_.serverAddress && morseInfo_.serverPort)
-                          ? morseInfo_.serverAddress + ":" + morseInfo_.serverPort
-                          : ""
-        property string serverAddress: telegramSettings.serverOptions.length
-                                       ? customServer.address
-                                       : ""
-        property int serverPort: telegramSettings.serverOptions.length
-                                 ? customServer.port
-                                 : 0
-    }
-
-    Telegram.FileAccountStorage {
-        id: accountStorage
-
-        accountIdentifier: root.phoneNumber
-        fileName: morseInfo_.accountDataFilePath
-
-        onSynced: console.log("Account synced to " + fileName)
-    }
-
-    Telegram.AppInformation {
-        id: appInfo
-        appId: morseInfo_.appId
-        appHash: morseInfo_.appHash
-        appVersion: morseInfo_.version
-        deviceInfo: "pc"
-        osInfo: "GNU/Linux"
-        languageCode: "en"
-    }
-
-    Telegram.Client {
-        id: telegramClient
-        applicationInformation: appInfo
-        settings: telegramSettings
-        dataStorage: Telegram.InMemoryDataStorage { }
-        accountStorage: accountStorage
     }
 
     Telegram.AuthOperation {
         id: authOperation
-        client: telegramClient
+        client: telegramClient_
         onCheckInFinished: {
             console.log("check in finished:" + signedIn)
             if (signedIn) {
@@ -273,18 +211,21 @@ AccountCreationAgent {
             configuration["telepathy/account"] = phoneNumber
             configuration["telepathy/param-account"] = phoneNumber
 
-            if (telegramSettings.proxy.address && telegramSettings.proxy.port) {
+            var proxySettings = telegramClient_.settings.proxy
+            if (proxySettings.address && proxySettings.port) {
                 configuration["telepathy/param-proxy-type"] = "socks5"
-                configuration["telepathy/param-proxy-address"] = telegramSettings.proxy.address
-                configuration["telepathy/param-proxy-port"] = telegramSettings.proxy.port
+                configuration["telepathy/param-proxy-address"] = proxySettings.address
+                configuration["telepathy/param-proxy-port"] = proxySettings.port
+                configuration["telepathy/param-proxy-username"] = proxySettings.user
+                configuration["telepathy/param-proxy-password"] = proxySettings.password
             }
 
-            if (telegramSettings.serverOptions.length !== 0) {
-                configuration["telepathy/param-server-address"] = customServer.address
-                configuration["telepathy/param-server-port"] = customServer.port
+            if (telegramClient_.hasCustomServer) {
+                configuration["telepathy/param-server-address"] = telegramClient_.customServerAddress
+                configuration["telepathy/param-server-port"] = telegramClient_.customServerPort
 
-                if (!telegramServerKey.loadDefault) {
-                    configuration["telepathy/param-server-key"] = telegramServerKey.fileName
+                if (telegramClient_.rsaKeyFileName) {
+                    configuration["telepathy/param-server-key"] = telegramClient_.rsaKeyFileName
                 }
             }
 
