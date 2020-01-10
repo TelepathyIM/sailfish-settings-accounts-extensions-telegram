@@ -249,6 +249,10 @@ AccountCreationAgent {
             }
         }
 
+        onFailed: {
+            console.log("Auth error:" + JSON.stringify(details))
+        }
+
         onAuthCodeRequired: {
             if (authOperation.registered) {
                 root.setActivePage("telegram/EnterCode.qml")
