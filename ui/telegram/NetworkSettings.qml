@@ -48,6 +48,11 @@ Column {
         checked: false
         text: "Use proxy"
         description: "Use a proxy for this connection"
+        onClicked: {
+            if (checked) {
+                proxyAddressField.focus = true
+            }
+        }
     }
 
     CollapsibleColumn {
@@ -116,6 +121,11 @@ Column {
         text: "Customize server"
         description: "Use a custom server (connect to a custom address of official or unofficial server)"
         visible: allowChangeServer
+        onClicked: {
+            if (checked) {
+                serverAddressField.focus = true
+            }
+        }
     }
 
     CollapsibleColumn {
