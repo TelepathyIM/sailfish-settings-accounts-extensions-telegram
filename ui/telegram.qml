@@ -229,6 +229,8 @@ AccountCreationAgent {
                 }
             }
 
+            configuration["telepathy/param-enable-authentication"] = false
+
             // Password is not needed for telegram account, but required by the Account library
             var passwordPlaceholder = "password_placeholder"
 
