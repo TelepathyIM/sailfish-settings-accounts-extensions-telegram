@@ -6,12 +6,12 @@ import com.jolla.settings.accounts 1.0
 import TelegramQt 0.2 as Telegram
 import Morse 0.1 as Morse
 
-import "telegram"
+import "telegram" as Internal
 
 AccountCreationAgent {
     id: root
     initialPage: Component {
-        WizardPage {
+        Internal.WizardPage {
             id: wizardPage
             contentSource: Qt.resolvedUrl("telegram/EnterPhone.qml")
 
@@ -106,7 +106,7 @@ AccountCreationAgent {
         targetPage.contentSource = Qt.resolvedUrl(pageUrl)
     }
 
-    Client {
+    Internal.Client {
         id: telegramClient_
     }
 
