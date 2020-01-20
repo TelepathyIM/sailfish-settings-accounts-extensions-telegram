@@ -1,0 +1,236 @@
+#!/bin/sh
+
+UPDATES_URL=https://raw.githubusercontent.com/TelepathyIM/sailfish-settings-accounts-extensions-telegram/master-staging/tools/telegram-qt-tool
+CORE_PACKAGES="telepathy-qt5 commhistory-daemon"
+MORSE_PACKAGES="telegram-qt-qt5 telegram-qt-qt5-declarative sailfish-settings-accounts-extensions-telegram telepathy-morse"
+PACKAGES="$CORE_PACKAGES $MORSE_PACKAGES"
+
+REPO_BASE_URL="http://repo.merproject.org/obs/c:/telepathy:"
+REPO_ARCH="armv7hl"
+REPO_LIST="mer-core morse"
+
+updateScript()
+{
+    local VERBOSE=1
+
+    DIFF=`which diff`
+    if [ $? -ne 0 ]; then
+        echo "'diff' is not available"
+        unset DIFF
+    fi
+    CURL=`which curl`
+    if [ $? -ne 0 ]; then
+        echo "Critical error: 'curl' is not available"
+        unset CURL
+        exit 1
+    fi
+
+    rm -f $0-new
+    echo "Downloading update from $UPDATES_URL"
+
+    if [ x"$VERBOSE" = x"1" ]; then
+        echo "$CURL --silent $UPDATES_URL -o $0-new"
+    fi
+
+    $CURL --silent $UPDATES_URL -o $0-new
+
+    if [ x"$VERBOSE" = x"1" ]; then
+        echo "diff -Naur $0 $0-new"
+    fi
+
+    DIFFERENCE=$($DIFF -Naur $0 $0-new)
+    if [ $? -eq 0 ]; then
+        echo "The newest version is already installed"
+        rm -f $0-new
+        return 0
+    fi
+    if [ x"$VERBOSE" = x"1" ]; then
+        echo "$DIFFERENCE"
+    fi
+
+    chmod +x $0-new && mv $0 $0-old && mv $0-new $0 && rm -f $0-old
+    if [ $? -ne 0 ]; then
+        echo "Error: Unable to sort out the script files."
+        exit 1
+    fi
+    echo "The script updated."
+    exit 0
+}
+
+shutdownMorse()
+{
+    if isRoot; then
+        echo -n "Morse shutdown is not available "
+        echo "(the script should be run in 'devel-su -p' mode to properly process accounts)."
+        return
+    fi
+
+    ONLINE_ACCOUNTS=`mc-tool summary|grep morse|grep -v offline|cut -d ' ' -f 1`
+    if [ -z "$ONLINE_ACCOUNTS" ]; then
+        echo "There is no active account."
+    else
+        echo "Accounts: $ONLINE_ACCOUNTS"
+        for ACCOUNT in ${ONLINE_ACCOUNTS}; do
+            echo "Disconnect account $ACCOUNT"
+            mc-tool request $ACCOUNT offline
+        done
+        sleep 1 # one sec should be enough for connection to sync and go offline
+    fi
+
+    # SFOS has no /sbin in PATH
+    MORSE_PID=`/sbin/pidof telepathy-morse`
+
+    if [ "$MORSE_PID" = "" ]; then
+        echo "telepathy-morse is not running"
+    else
+        echo "killall telepathy-morse"
+        killall telepathy-morse
+    fi
+}
+
+isPrivileged()
+{
+    if [ "$(groups|grep privileged|wc -l)" = "0" ]; then
+        return 1
+    fi
+    return 0
+}
+
+isRoot()
+{
+    if [ "$(whoami)" = "root" ]; then
+        return 0
+    fi
+    return 1
+}
+
+ensurePrivilegies()
+{
+    if isPrivileged || isRoot ; then
+        return 0
+    fi
+    echo "Error: Insufficient privileges. Use 'devel-su -p' to run the tool."
+    return 1
+}
+
+showPackages()
+{
+    echo "Installed core packages:"
+    for PACKAGE in ${CORE_PACKAGES}; do
+        echo -n "    "
+        rpm -q $PACKAGE
+    done
+    echo "Installed Morse packages:"
+    for PACKAGE in ${MORSE_PACKAGES}; do
+        echo -n "    "
+        rpm -q $PACKAGE
+    done
+}
+
+showRepositories()
+{
+    local BRANCH=$1 # devel or release
+
+    if [ x"$BRANCH" = "x" ]; then
+        echo "Error: The branch is not specified"
+        printHelp
+        exit 1
+    fi
+
+    echo "Repositories:"
+    for REPOSITORY in ${REPO_LIST}; do
+        local REPO_URL=$REPO_BASE_URL/$BRANCH:/$REPOSITORY/latest_$REPO_ARCH/
+        local REPO_NAME="tp-$REPOSITORY"
+        # echo "$REPO_NAME ... $REPO_URL"
+        printf " - %-12s ... %-20s\n" $REPO_NAME $REPO_URL
+    done
+}
+
+ensureAndUpdateRepository()
+{
+    local REPOSITORY=$1 # mer-core or morse
+    local BRANCH=$2 # devel or release
+    local REPO_URL=$REPO_BASE_URL/$BRANCH:/$REPOSITORY/latest_$REPO_ARCH/
+    local REPO_NAME="tp-$REPOSITORY"
+
+    echo "Setting up repository $REPO_NAME with URL $REPO_URL"
+    ssu ar $REPO_NAME $REPO_URL
+    echo "Enabling repository $REPO_NAME"
+    ssu er $REPO_NAME
+    echo "Updating the repository $REPO_NAME"
+    pkcon repo-set-data $REPO_NAME refresh-now true > /dev/null
+}
+
+installPackages()
+{
+    local BRANCH=$1
+
+    if [ x"$BRANCH" = "x" ]; then
+        echo "Error: The branch is not specified"
+        printHelp
+        exit 1
+    fi
+
+    if ! ensurePrivilegies; then
+        exit 1
+    fi
+
+    for REPOSITORY in ${REPO_LIST}; do
+        ensureAndUpdateRepository $REPOSITORY $BRANCH
+    done
+
+    echo "Installing packages..."
+    pkcon install -y $PACKAGES
+    echo "Disabling the repositories"
+    for REPOSITORY in ${REPO_LIST}; do
+        ssu dr tp-$REPOSITORY
+    done
+
+    showPackages
+    shutdownMorse
+}
+
+printHelp()
+{
+    echo "Usage:"
+    echo "    $0 <command> [<args>]"
+    echo ""
+    echo "Available commands:"
+    echo "    --help                        Show this help"
+    echo "    --install [branch]            Install current version from the given branch"
+    echo "    --show-packages               Print the repositories of the given branch"
+    echo "    --show-repositories [branch]  Print the repositories of the given branch"
+    echo "    --update-script               Update this script"
+    echo ""
+    echo "Branches:"
+    echo "    release                       The most stable build"
+    echo "    testing                       A preview version of next stable build"
+    echo "    devel                         The current development version"
+    echo "    wip                           A preview build with some experimental features"
+}
+
+case "$1" in
+    --help)
+        printHelp
+        exit 0
+        ;;
+    --install)
+        installPackages $2
+        ;;
+    --show-packages)
+        showPackages
+        ;;
+    --show-repositories)
+        showRepositories $2
+        ;;
+    --update)
+        updatePackages $2
+        ;;
+    --update-script)
+        updateScript
+        ;;
+    *)
+        printHelp
+        exit 1
+        ;;
+esac
