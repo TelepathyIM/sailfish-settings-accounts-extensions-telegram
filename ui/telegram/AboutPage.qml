@@ -2,6 +2,7 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 
 import Morse 0.1 as Morse
+import TelegramQt 0.2 as Telegram
 
 Page {
     id: page_
@@ -32,6 +33,14 @@ Page {
             DetailItem {
                 label: "Morse build"
                 value: morseInfo_.buildVersion
+            }
+            DetailItem {
+                label: "TelegramQt version"
+                value: Telegram.Namespace.version
+            }
+            DetailItem {
+                label: "TelegramQt build"
+                value: Telegram.Namespace.buildVersion
             }
         }
     }
