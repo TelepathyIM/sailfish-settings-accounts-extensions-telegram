@@ -74,7 +74,7 @@ WizardPageContent {
         ListElement {
             code: ""
             country: "Custom"
-            length: 12
+            length: 15
         }
     }
 }
