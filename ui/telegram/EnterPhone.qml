@@ -72,6 +72,11 @@ WizardPageContent {
             length: 9 // 6 or 7, followed by 8 digits
         }
         ListElement {
+            code: "49"
+            country: "Germany"
+            length: 11
+        }
+        ListElement {
             code: ""
             country: "Custom"
             length: 15
