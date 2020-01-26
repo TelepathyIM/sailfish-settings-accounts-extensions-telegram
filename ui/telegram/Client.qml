@@ -11,9 +11,7 @@ Telegram.Client {
     property alias customServerAddress: customServer_.address
     property alias customServerPort: customServer_.port
     readonly property bool hasCustomServer: customServerAddress && customServerPort
-    property string serverIdentifier: hasCustomServer
-                                      ? morseInfo_.serverAddress + ":" + morseInfo_.serverPort
-                                      : ""
+    property alias serverIdentifier: morseInfo_.serverIdentifier
     property alias rsaKeyFileName: rsaKey_.fileName
     property alias accountDataFileName: accountStorage_.fileName
 
@@ -47,7 +45,8 @@ Telegram.Client {
 
     property QtObject morseInfo: Morse.Info {
         id: morseInfo_
-        serverIdentifier: hasCustomServer ? morseInfo_.serverAddress + ":" + morseInfo_.serverPort
+        serverIdentifier: hasCustomServer
+                          ? root_.customServerAddress + ":" + root_.customServerPort
                           : ""
         accountIdentifier: accountStorage_.accountIdentifier
     }
