@@ -113,6 +113,15 @@ ensurePrivilegies()
     return 1
 }
 
+listAccounts()
+{
+    ACCOUNTS=$(mc-tool dump|grep "Account:"|grep telegram|cut -d ":" -f 2)
+    echo "Telepathy Morse accounts:"
+    for ACCOUNT in ${ACCOUNTS}; do
+        echo "    $ACCOUNT"
+    done
+}
+
 showPackages()
 {
     echo "Installed core packages:"
@@ -198,6 +207,7 @@ printHelp()
     echo "Available commands:"
     echo "    --help                        Show this help"
     echo "    --install [branch]            Install current version from the given branch"
+    echo "    --list-accounts               List all Telepathy Morse accounts"
     echo "    --show-packages               Print the repositories of the given branch"
     echo "    --show-repositories [branch]  Print the repositories of the given branch"
     echo "    --update-script               Update this script"
@@ -216,6 +226,9 @@ case "$1" in
         ;;
     --install)
         installPackages $2
+        ;;
+    --list-accounts)
+        listAccounts
         ;;
     --show-packages)
         showPackages
